@@ -1,0 +1,93 @@
+openapi: 3.0.0
+security: [ { BasicAuth: [], ApiKeyAuth: [] }] # both are required
+info:
+  description: Barebells REST API
+  version: "1.0.0"
+  title: Barebells REST API
+  contact:
+    email: raybergholm@gmail.com
+
+tags:
+  - name: Status
+  - name: Events
+  - name: Users
+  - name: Locations
+  - name: CORS
+
+paths:
+  /health:
+    options:
+      tags:
+        - CORS
+      summary: CORS support
+      description: Enable CORS by returning correct headers
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: |
+            {
+              "statusCode" : 200
+            }
+        responses:
+          "default":
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Headers : "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods : "'*'"
+              method.response.header.Access-Control-Allow-Origin : "'*'"
+            responseTemplates:
+              application/json: |
+                {}
+      responses:
+        200:
+          $ref: "#/components/responses/OptionsCorsResponse"
+    get:
+      tags:
+        - Server Status
+      summary: checks API health
+      description: checks API health
+      operationId: checkHealth
+      responses:
+        200:
+          $ref: "#/components/responses/SimpleStringResponse"
+        default:
+          $ref: "#/components/responses/GeneralErrorResponse"
+
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  responses:
+    OptionsCorsResponse:
+      description: Default response for CORS method
+      headers:
+        Access-Control-Allow-Headers:
+          schema:
+            type: "string"
+        Access-Control-Allow-Methods:
+          schema:
+            type: "string"
+        Access-Control-Allow-Origin:
+          schema:
+            type: "string"
+    GeneralErrorResponse:
+      description: Standard response returned from most error cases
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    SimpleStringResponse:
+      description: Simple string response
+      content:
+        application/json:
+          schema:
+            type: string

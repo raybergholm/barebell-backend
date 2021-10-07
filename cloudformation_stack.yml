@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS Cloudformation template for BailemosHelsinki bot and API stack
+Parameters:
+  LambdaS3BucketName:
+    Type: String
+    Description: S3 bucket name (used to store lambda code and event data)
+
+Resources:
+  LambdaApiHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Ref: S3BucketName
+        S3Key: lambdas/api/apiHandler/lambda_package.zip
+      Description: Handles queries coming from the public API
+      FunctionName: barebell-apiQueryHandler
+      Handler: index.handler
+      Runtime: nodejs8.10
+      Timeout: 180
+  
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: blogit-api
+  
+  ApiResourceHealth:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - RestApi
+          - RootResourceId
+      PathPart: health
+      RestApiId:
+        Ref: RestApi
+  ApiMethodHealthOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ResourceId: 
+        Ref: ApiResourceHealth
+      RestApiId: 
+        Ref: RestApi
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      RequestParameters: {}
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{statusCode:200}'
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+              method.response.header.Access-Control-Allow-Headers: >-
+                'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'
+              method.response.header.Access-Control-Allow-Methods: '''OPTIONS,GET'''
+            ResponseTemplates:
+              application/json: ''
+        MethodResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: true
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+            ResponseModels: {}
+  ApiMethodHealthGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ResourceId: 
+        Ref: ApiResourceHealth
+      RestApiId: 
+        Ref: RestApi
+          HttpMethod: GET
+          AuthorizationType: NONE
+          ApiKeyRequired: true
+          RequestParameters: {}
+          Integration:
+            Type: MOCK
+            RequestTemplates:
+              application/json: '{statusCode:200}'
+            IntegrationResponses:
+              - StatusCode: '200'
+                ResponseTemplates:
+                  application/json: ''
+          MethodResponses:
+            - StatusCode: '200'
+              ResponseModels: {}
+
+  ApiResourceRest:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - RestApi
+          - RootResourceId
+      PathPart: rest
+      RestApiId:
+        Ref: RestApi
+  
+  ApiResourceWorkouts:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - ApiResourceRest
+          - RootResourceId
+      PathPart: workouts
+      RestApiId:
+        Ref: RestApi
+
+  ApiMethodWorkoutsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ResourceId:
+        Ref: ApiResourceBot
+      RestApiId:
+        Ref: PublicRestApi
+      HttpMethod: GET
+      AuthorizationType: NONE
+      RequestParameters: {}
+      Integration:
+        IntegrationHttpMethod: GET
+        Type: AWS_PROXY
+        Uri:
+          Fn::Sub:
+            - "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+            - region: 
+                Ref: AWS::Region
+              lambdaArn: 
+                Fn::GetAtt:
+                  - LambdaBotFacebookAuthenticator
+                  - Arn
